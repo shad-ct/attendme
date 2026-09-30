@@ -17,8 +17,17 @@ interface TimetableEntry {
   endTime: string;
 }
 
-const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'] as const;
-const TIMESLOTS = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
+const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'] as const;
+// Timeslots matching V FYIMP schedule; 12:30 is the lunch break slot (shown but not droppable)
+const TIMESLOTS = ['09:30', '10:30', '11:30', '12:30', '13:30', '14:30', '15:30'] as const;
+const BREAK_SLOT = '12:30';
+
+// Given a HH:mm start time, returns the end time 60 minutes later
+function addOneHour(time: string): string {
+  const [h, m] = time.split(':').map(Number);
+  const totalMins = h * 60 + m + 60;
+  return `${String(Math.floor(totalMins / 60)).padStart(2, '0')}:${String(totalMins % 60).padStart(2, '0')}`;
+}
 
 const DraggablePaper = ({ paper }: { paper: Paper }) => {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -147,7 +156,8 @@ export default function AdminTimetable() {
 
     if (!paper || !day || !time) return;
 
-    const endTime = String(Number(time.split(':')[0]) + 1).padStart(2, '0') + ':00';
+    if (time === BREAK_SLOT) return;
+    const endTime = addOneHour(time);
 
     addMutation.mutate({
       semesterId: selectedSemesterId,
@@ -229,27 +239,43 @@ export default function AdminTimetable() {
                 </div>
 
                 <div className="divide-y" style={{ borderColor: 'var(--color-separator)' }}>
-                  {TIMESLOTS.slice(0, -1).map(time => (
-                    <div key={time} className="flex min-h-[100px]">
-                      <div className="w-20 shrink-0 border-r flex flex-col items-center justify-center text-xs font-medium opacity-60" style={{ borderColor: 'var(--color-separator)' }}>
-                        <span>{time}</span>
+                  {TIMESLOTS.map(time => {
+                    const isBreak = time === BREAK_SLOT;
+                    return (
+                      <div key={time} className={`flex ${isBreak ? 'min-h-[48px]' : 'min-h-[100px]'}`}>
+                        <div
+                          className="w-20 shrink-0 border-r flex flex-col items-center justify-center text-xs font-medium opacity-60"
+                          style={{ borderColor: 'var(--color-separator)' }}
+                        >
+                          <span>{time}</span>
+                          {!isBreak && <span className="opacity-50">–{addOneHour(time)}</span>}
+                        </div>
+
+                        {isBreak ? (
+                          <div
+                            className="flex-1 flex items-center justify-center text-xs font-semibold uppercase tracking-widest opacity-40"
+                            style={{ background: 'var(--color-separator)' }}
+                          >
+                            Lunch Break
+                          </div>
+                        ) : (
+                          DAYS.map(day => {
+                            const entry = entries.find(e => e.dayOfWeek === day && e.startTime === time);
+                            return (
+                              <DroppableCell
+                                key={`${day}-${time}`}
+                                id={`${day}-${time}`}
+                                day={day}
+                                time={time}
+                                entry={entry}
+                                onDelete={(id) => deleteMutation.mutate(id)}
+                              />
+                            );
+                          })
+                        )}
                       </div>
-                      
-                      {DAYS.map(day => {
-                        const entry = entries.find(e => e.dayOfWeek === day && e.startTime === time);
-                        return (
-                          <DroppableCell
-                            key={`${day}-${time}`}
-                            id={`${day}-${time}`}
-                            day={day}
-                            time={time}
-                            entry={entry}
-                            onDelete={(id) => deleteMutation.mutate(id)}
-                          />
-                        );
-                      })}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
