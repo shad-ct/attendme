@@ -14,7 +14,7 @@ export default function StudentDashboard() {
 
   const { data: timetable = [] } = useQuery({
     queryKey: ['student-timetable'],
-    queryFn: () => api.get('/timetable/classes/student').then((r) => r.data.data ?? []),
+    queryFn: () => api.get('/timetable/semesters/student').then((r) => r.data.data ?? []),
   });
 
   const { data: attendance } = useQuery({

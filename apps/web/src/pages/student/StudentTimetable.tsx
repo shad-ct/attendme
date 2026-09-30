@@ -12,7 +12,7 @@ export default function StudentTimetable() {
 
   const { data: entries = [], isLoading } = useQuery({
     queryKey: ['student-timetable'],
-    queryFn: () => api.get('/timetable/classes/student').then((r) => r.data.data ?? []),
+    queryFn: () => api.get('/timetable/semesters/student').then((r) => r.data.data ?? []),
   });
 
   const weekdays = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
