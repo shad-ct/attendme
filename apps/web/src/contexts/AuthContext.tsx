@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { Role } from '@attendme/shared';
 
@@ -21,7 +22,19 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
 
+  // Handle forced logout from api interceptor (refresh failed)
+  useEffect(() => {
+    const handleForceLogout = () => {
+      setUser(null);
+      navigate('/login', { replace: true });
+    };
+    window.addEventListener('auth:logout', handleForceLogout);
+    return () => window.removeEventListener('auth:logout', handleForceLogout);
+  }, [navigate]);
+
+  // Restore session on mount
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     if (!token) {
@@ -30,7 +43,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     api.get('/auth/me')
       .then(({ data }) => setUser(data.data.user))
-      .catch(() => { localStorage.clear(); })
+      .catch(() => {
+        localStorage.clear();
+        setUser(null);
+      })
       .finally(() => setIsLoading(false));
   }, []);
 
@@ -46,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     api.post('/auth/logout').catch(() => {});
     localStorage.clear();
     setUser(null);
+    navigate('/login', { replace: true });
   }
 
   return (

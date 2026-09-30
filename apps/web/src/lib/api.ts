@@ -12,30 +12,46 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Track whether a refresh is in-flight to avoid parallel refresh calls
+let refreshPromise: Promise<string> | null = null;
+
+async function refreshAccessToken(): Promise<string> {
+  const refreshToken = localStorage.getItem('refreshToken');
+  if (!refreshToken) throw new Error('No refresh token');
+
+  const { data } = await axios.post('/api/auth/refresh', { refreshToken });
+  localStorage.setItem('accessToken', data.data.accessToken);
+  localStorage.setItem('refreshToken', data.data.refreshToken);
+  return data.data.accessToken;
+}
+
 // Auto-refresh on 401
 api.interceptors.response.use(
   (res) => res,
   async (error) => {
     const original = error.config;
+
     if (error.response?.status === 401 && !original._retry) {
       original._retry = true;
-      const refreshToken = localStorage.getItem('refreshToken');
-      if (refreshToken) {
-        try {
-          const { data } = await axios.post('/api/auth/refresh', { refreshToken });
-          localStorage.setItem('accessToken', data.data.accessToken);
-          localStorage.setItem('refreshToken', data.data.refreshToken);
-          original.headers.Authorization = `Bearer ${data.data.accessToken}`;
-          return api(original);
-        } catch {
-          localStorage.clear();
-          window.location.href = '/login';
+
+      try {
+        // Deduplicate: if a refresh is already in-flight, wait for it
+        if (!refreshPromise) {
+          refreshPromise = refreshAccessToken().finally(() => {
+            refreshPromise = null;
+          });
         }
-      } else {
+        const newToken = await refreshPromise;
+        original.headers.Authorization = `Bearer ${newToken}`;
+        return api(original);
+      } catch {
+        // Refresh failed — clear storage and fire an event so the app can react
         localStorage.clear();
-        window.location.href = '/login';
+        window.dispatchEvent(new Event('auth:logout'));
+        return Promise.reject(error);
       }
     }
+
     return Promise.reject(error);
   }
 );

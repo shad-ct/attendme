@@ -57,10 +57,11 @@ function RoleRouter() {
   return <Navigate to="/student" replace />;
 }
 
+// BrowserRouter wraps AuthProvider so useNavigate works inside AuthContext
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
+    <BrowserRouter>
+      <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<RoleRouter />} />
@@ -101,7 +102,7 @@ export default function App() {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
